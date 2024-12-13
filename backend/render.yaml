@@ -3,6 +3,7 @@ services:
     name: url-to-podcast-api
     env: python
     plan: free
+    rootDirectory: backend  # This tells Render to use the backend directory
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
