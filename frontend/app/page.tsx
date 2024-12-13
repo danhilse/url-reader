@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import AudioPlayer from '@/components/audio-player'
+import { API_URL } from "@/lib/config"  // Add this import
+
 
 export default function Home() {
   const [url, setUrl] = useState('')
@@ -17,7 +19,7 @@ export default function Home() {
     setIsLoading(true)
     
     try {
-      const response = await fetch('http://localhost:8000/api/scrape', {
+      const response = await fetch(`${API_URL}/api/scrape`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

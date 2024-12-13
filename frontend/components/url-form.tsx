@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Form } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
+import { API_URL } from "@/lib/config"  // Add this import
 
 export function UrlForm() {
   const [url, setUrl] = useState("")
@@ -20,7 +20,7 @@ export function UrlForm() {
     setContent(null)
 
     try {
-      const response = await fetch('http://localhost:8000/api/scrape', {
+      const response = await fetch(`${API_URL}/api/scrape`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
