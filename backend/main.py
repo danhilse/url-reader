@@ -8,12 +8,10 @@ from bs4 import BeautifulSoup
 import httpx
 import re
 from services.text_to_speech import AudioService
-import os
-import dotenv
-
 from services.storage import S3Storage
 from services.feed import RSSFeed
-from datetime import datetime
+import os
+import dotenv
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -29,8 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
+# Initialize services in correct order
 audio_service = AudioService()
+storage_service = S3Storage()
+feed_service = RSSFeed(str(audio_service.temp_dir))
 
 # Mount temp directory for serving audio files
 app.mount("/audio", StaticFiles(directory=str(audio_service.temp_dir)), name="audio")
@@ -107,21 +107,28 @@ async def scrape_url(input: UrlInput):
         # First scrape the content
         content = await scrape_content(input.url)
         
-        # Create audio version
+        # Extract title
         title = content.split('\n')[0].replace('#', '').strip() if content else "Untitled Article"
         
-        # Get first 1000 characters for audio preview
-        preview_text = ' '.join(content.split()[:100])  # First 100 words
+        # Get preview text for audio (first 100 words)
+        preview_text = ' '.join(content.split()[:100])
         
+        # Create audio file locally
         audio_path = await audio_service.create_audio(preview_text, title)
         
-        # Convert file path to URL
+        # Upload to S3
+        audio_url = await storage_service.upload_audio(audio_path, title)
+        
+        # Update RSS feed
+        feed_service.add_item(title, audio_url, input.url)
+        
+        # Get local audio URL for immediate playback
         audio_filename = os.path.basename(audio_path)
-        audio_url = f"/audio/{audio_filename}"
+        local_audio_url = f"/audio/{audio_filename}"
         
         return {
             "content": content,
-            "audio_url": audio_url
+            "audio_url": local_audio_url  # Return local URL for immediate playback
         }
         
     except HTTPException as e:
@@ -134,34 +141,20 @@ async def scrape_url(input: UrlInput):
 @app.post("/api/convert")
 async def convert_url(input: UrlInput):
     try:
-        # Scrape content and get metadata
+        # First scrape the content
         content = await scrape_content(input.url)
         
-        # Extract title and description
+        # Extract title
         title = content.split('\n')[0].replace('#', '').strip() if content else "Untitled Article"
-        description = content.split('\n')[2].strip() if len(content.split('\n')) > 2 else ""
         
-        # Create audio and upload to S3
+        # Create audio file locally
         audio_path = await audio_service.create_audio(content, title)
+        
+        # Upload to S3
         audio_url = await storage_service.upload_audio(audio_path, title)
         
-        # Create RSS item
-        new_item = {
-            'title': title,
-            'description': description,
-            'pub_date': feed_service.format_date(datetime.now()),
-            'audio_url': audio_url,
-            'source_url': input.url,
-            'file_size': os.path.getsize(audio_path)
-        }
-        
-        # Generate updated RSS feed
-        feed_xml = feed_service.generate_feed([new_item])  # For now, just show latest
-        
-        # Save feed XML to temp file for development
-        feed_path = os.path.join(audio_service.temp_dir, 'feed.xml')
-        with open(feed_path, 'w', encoding='utf-8') as f:
-            f.write(feed_xml)
+        # Update RSS feed
+        feed_service.add_item(title, audio_url, input.url)
         
         return {
             "status": "success",
@@ -173,7 +166,16 @@ async def convert_url(input: UrlInput):
     except HTTPException as e:
         raise e
     except Exception as e:
+        print(f"Error in convert_url: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Add a new endpoint to get the RSS feed
+@app.get("/api/feed")
+async def get_feed():
+    feed_path = os.path.join(audio_service.temp_dir, 'feed.xml')
+    if os.path.exists(feed_path):
+        return FileResponse(feed_path, media_type='application/xml')
+    raise HTTPException(status_code=404, detail="Feed not found")
 
 @app.get("/api/health")
 async def health_check():
