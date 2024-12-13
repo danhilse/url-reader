@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import AudioPlayer from '@/components/audio-player'
 import { API_URL } from "@/lib/config"  // Add this import
+
 
 
 export default function Home() {
@@ -14,7 +15,7 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     
