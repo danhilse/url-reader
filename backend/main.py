@@ -16,6 +16,7 @@ import dotenv
 # Load environment variables
 dotenv.load_dotenv()
 
+app = FastAPI()
 
 
 # Configure CORS
@@ -31,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app = FastAPI()
+
 
 # Initialize services in correct order
 audio_service = AudioService()
