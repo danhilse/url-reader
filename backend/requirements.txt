@@ -7,3 +7,4 @@ openai
 boto3
 requests
 aiofiles
+openai

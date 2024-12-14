@@ -22,7 +22,7 @@ class AudioService:
             # Generate speech using OpenAI
             response = await self.client.audio.speech.create(
                 model="tts-1-hd",
-                voice="nova",
+                voice="echo",
                 input=text
             )
 

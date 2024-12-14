@@ -44,10 +44,9 @@ app.mount("/audio", StaticFiles(directory=str(audio_service.temp_dir)), name="au
 
 class UrlInput(BaseModel):
     url: str
-
 async def scrape_content(url: str) -> str:
     """
-    Scrape content from URL using httpx
+    Scrape content from URL using httpx, removing images and alt text
     """
     async with httpx.AsyncClient() as client:
         try:
@@ -62,6 +61,22 @@ async def scrape_content(url: str) -> str:
             # Remove unwanted elements
             for elem in soup.select('nav, footer, script, style, header'):
                 elem.decompose()
+
+            # Remove all images and their alt text
+            for img in soup.find_all('img'):
+                img.decompose()
+            
+            # Remove figure elements (often contain images with captions)
+            for figure in soup.find_all('figure'):
+                figure.decompose()
+                
+            # Remove picture elements (responsive images)
+            for picture in soup.find_all('picture'):
+                picture.decompose()
+                
+            # Remove svg elements
+            for svg in soup.find_all('svg'):
+                svg.decompose()
 
             # Try to find the main content
             content_priorities = [
@@ -91,6 +106,7 @@ async def scrape_content(url: str) -> str:
 
             # Process main content
             for tag in main_content.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote']):
+                # Skip empty tags or those that only contained images
                 text = tag.get_text(strip=True)
                 if text:
                     if tag.name.startswith('h'):
@@ -101,13 +117,18 @@ async def scrape_content(url: str) -> str:
                     else:
                         content_parts.append(f"{text}\n\n")
 
-            return "".join(content_parts)
+            # Clean up any double spaces or extra newlines
+            content = "".join(content_parts)
+            content = re.sub(r'\n{3,}', '\n\n', content)
+            content = re.sub(r' {2,}', ' ', content)
+            
+            return content.strip()
 
         except httpx.HTTPError as e:
             raise HTTPException(status_code=400, detail=f"Error fetching URL: {str(e)}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-
+        
 @app.post("/api/scrape")
 async def scrape_url(input: UrlInput):
     try:
