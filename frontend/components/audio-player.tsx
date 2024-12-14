@@ -1,5 +1,6 @@
 // components/audio-player.tsx
 import { Card } from "@/components/ui/card"
+import { API_URL } from "@/lib/config"
 
 interface AudioPlayerProps {
   audioUrl: string | null;
@@ -9,9 +10,9 @@ interface AudioPlayerProps {
 export default function AudioPlayer({ audioUrl, isLoading }: AudioPlayerProps) {
   if (isLoading) {
     return (
-      <Card className="w-full p-4 mb-4">
-        <div className="animate-pulse h-12 bg-gray-200 rounded"></div>
-      </Card>
+    //   <Card className="w-full p-4 mb-4">
+        <div className="w-full animate-pulse h-12 bg-gray-200 rounded"></div>
+      
     )
   }
 
@@ -19,7 +20,7 @@ export default function AudioPlayer({ audioUrl, isLoading }: AudioPlayerProps) {
 
   // The audioUrl should now be a full URL from the backend
   return (
-    <Card className="w-full p-4 mb-4">
+    <div className="w-full p-4 mb-4">
       <audio 
         controls 
         className="w-full" 
@@ -27,6 +28,6 @@ export default function AudioPlayer({ audioUrl, isLoading }: AudioPlayerProps) {
       >
         Your browser does not support the audio element.
       </audio>
-    </Card>
+    </div>
   )
 }
