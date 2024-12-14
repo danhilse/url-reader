@@ -1,6 +1,4 @@
 // components/audio-player.tsx
-import { Card } from "@/components/ui/card"
-import { API_URL } from "@/lib/config"
 
 interface AudioPlayerProps {
   audioUrl: string | null;
