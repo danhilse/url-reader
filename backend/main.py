@@ -25,6 +25,7 @@ app.add_middleware(
         "http://localhost:3000",  # Local development
         "url-reader.vercel.app",  # Your Vercel domain
         "https://url-reader.vercel.app/",  # Your Vercel domain
+        "https://url-reader-git-master-danhilses-projects.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
