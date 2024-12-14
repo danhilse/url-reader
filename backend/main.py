@@ -23,7 +23,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Local development
-        "https://url-reader-git-master-danhilses-projects.vercel.app",  # Your Vercel domain
+        "url-reader.vercel.app",  # Your Vercel domain
+        "https://url-reader.vercel.app/",  # Your Vercel domain
     ],
     allow_credentials=True,
     allow_methods=["*"],
