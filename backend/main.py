@@ -1,7 +1,7 @@
 # backend/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse  # Add StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from bs4 import BeautifulSoup
@@ -12,6 +12,8 @@ from services.storage import S3Storage
 from services.feed import RSSFeed
 import os
 import dotenv
+import asyncio
+import json
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -208,3 +210,108 @@ async def get_feed():
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/api/extract")
+async def extract_content(input: UrlInput):
+    """New endpoint that only handles text extraction"""
+    try:
+        content = await scrape_content(input.url)
+        title = content.split('\n')[0].replace('#', '').strip() if content else "Untitled Article"
+        
+        return {
+            "content": content,
+            "title": title
+        }
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"Error in extract_content: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/generate-audio")
+async def generate_audio(input: UrlInput):
+    """New endpoint that handles audio generation"""
+    try:
+        content = await scrape_content(input.url)
+        title = content.split('\n')[0].replace('#', '').strip() if content else "Untitled Article"
+        
+        # Create audio file locally
+        audio_path = await audio_service.create_audio(content, title)
+        
+        # Upload to S3
+        audio_url = await storage_service.upload_audio(audio_path, title)
+        
+        # Update RSS feed
+        feed_service.add_item(title, audio_url, input.url)
+        
+        # Get local audio URL for immediate playback
+        audio_filename = os.path.basename(audio_path)
+        local_audio_url = f"/audio/{audio_filename}"
+        
+        return {
+            "audio_url": local_audio_url
+        }
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"Error in generate_audio: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@app.get("/api/extract/stream")
+async def extract_content_stream(url: str):
+    """Stream the content word by word, respecting line breaks and paragraphs"""
+    async def generate():
+        try:
+            content = await scrape_content(url)
+            # Split into paragraphs first, then lines
+            paragraphs = content.split('\n\n')
+            total_words = sum(len(p.split()) for p in paragraphs)
+            
+            yield f"data: {json.dumps({'type': 'init', 'total': total_words})}\n\n"
+            
+            word_index = 0
+            for paragraph in paragraphs:
+                lines = paragraph.split('\n')
+                for i, line in enumerate(lines):
+                    words = line.split()
+                    for word in words:
+                        data = {
+                            'type': 'word',
+                            'content': word,
+                            'index': word_index,
+                            'lineBreak': False
+                        }
+                        yield f"data: {json.dumps(data)}\n\n"
+                        word_index += 1
+                        await asyncio.sleep(0.01)
+                    
+                    # Add line break if this isn't the last line in the paragraph
+                    if i < len(lines) - 1:
+                        data = {
+                            'type': 'lineBreak',
+                            'index': word_index - 1,
+                            'isParagraphBreak': False
+                        }
+                        yield f"data: {json.dumps(data)}\n\n"
+                
+                # Add paragraph break after each paragraph except the last one
+                if paragraph != paragraphs[-1]:
+                    data = {
+                        'type': 'lineBreak',
+                        'index': word_index - 1,
+                        'isParagraphBreak': True
+                    }
+                    yield f"data: {json.dumps(data)}\n\n"
+            
+            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate(), 
+        media_type="text/event-stream"
+    )
