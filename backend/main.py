@@ -46,9 +46,14 @@ app.mount("/audio", StaticFiles(directory=str(audio_service.temp_dir)), name="au
 
 class UrlInput(BaseModel):
     url: str
+
+MAX_CONTENT_LENGTH = 16000
+TRUNCATION_MESSAGE = "\n\n[Article truncated due to length]"
+
 async def scrape_content(url: str) -> str:
     """
-    Scrape content from URL using httpx, removing images and alt text
+    Scrape content from URL using httpx, removing images and alt text.
+    Content is truncated if it exceeds MAX_CONTENT_LENGTH.
     """
     async with httpx.AsyncClient() as client:
         try:
@@ -96,31 +101,46 @@ async def scrape_content(url: str) -> str:
             # Extract text from relevant tags
             content_parts = []
             
-            # Get title first
+            # Always include title if available (don't count towards length limit)
             title = soup.find('title')
-            if title:
-                content_parts.append(f"# {title.get_text(strip=True)}\n\n")
+            title_text = f"# {title.get_text(strip=True)}\n\n" if title else ""
             
-            # Get meta description
+            # Get meta description (don't count towards length limit)
             meta_desc = soup.find('meta', {'name': 'description'}) or soup.find('meta', {'property': 'og:description'})
-            if meta_desc and meta_desc.get('content'):
-                content_parts.append(f"*{meta_desc.get('content')}*\n\n")
+            meta_text = f"*{meta_desc.get('content')}*\n\n" if meta_desc and meta_desc.get('content') else ""
 
-            # Process main content
+            # Process main content with length tracking
+            current_length = 0
+            exceeded_limit = False
+            
             for tag in main_content.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote']):
-                # Skip empty tags or those that only contained images
                 text = tag.get_text(strip=True)
                 if text:
+                    formatted_text = ""
                     if tag.name.startswith('h'):
                         level = int(tag.name[1])
-                        content_parts.append(f"{'#' * level} {text}\n\n")
+                        formatted_text = f"{'#' * level} {text}\n\n"
                     elif tag.name == 'blockquote':
-                        content_parts.append(f"> {text}\n\n")
+                        formatted_text = f"> {text}\n\n"
                     else:
-                        content_parts.append(f"{text}\n\n")
+                        formatted_text = f"{text}\n\n"
+                    
+                    # Check if adding this would exceed limit
+                    if current_length + len(formatted_text) > MAX_CONTENT_LENGTH:
+                        exceeded_limit = True
+                        break
+                        
+                    content_parts.append(formatted_text)
+                    current_length += len(formatted_text)
+
+            # Combine all parts
+            content = title_text + meta_text + "".join(content_parts)
+            
+            # Add truncation message if needed
+            if exceeded_limit:
+                content = content.rstrip() + TRUNCATION_MESSAGE
 
             # Clean up any double spaces or extra newlines
-            content = "".join(content_parts)
             content = re.sub(r'\n{3,}', '\n\n', content)
             content = re.sub(r' {2,}', ' ', content)
             
@@ -262,11 +282,10 @@ async def generate_audio(input: UrlInput):
     
 @app.get("/api/extract/stream")
 async def extract_content_stream(url: str):
-    """Stream the content word by word, respecting line breaks and paragraphs"""
+    """Stream the content word by word, respecting markdown formatting"""
     async def generate():
         try:
             content = await scrape_content(url)
-            # Split into paragraphs first, then lines
             paragraphs = content.split('\n\n')
             total_words = sum(len(p.split()) for p in paragraphs)
             
@@ -276,13 +295,20 @@ async def extract_content_stream(url: str):
             for paragraph in paragraphs:
                 lines = paragraph.split('\n')
                 for i, line in enumerate(lines):
+                    # Detect header level
+                    header_level = 0
+                    if line.strip().startswith('#'):
+                        header_level = len(line.split()[0])  # Count # symbols
+                        line = ' '.join(line.split()[1:])  # Remove # symbols
+                    
                     words = line.split()
                     for word in words:
                         data = {
                             'type': 'word',
                             'content': word,
                             'index': word_index,
-                            'lineBreak': False
+                            'lineBreak': False,
+                            'headerLevel': header_level if header_level else None
                         }
                         yield f"data: {json.dumps(data)}\n\n"
                         word_index += 1
@@ -293,7 +319,8 @@ async def extract_content_stream(url: str):
                         data = {
                             'type': 'lineBreak',
                             'index': word_index - 1,
-                            'isParagraphBreak': False
+                            'isParagraphBreak': False,
+                            'headerLevel': header_level if header_level else None
                         }
                         yield f"data: {json.dumps(data)}\n\n"
                 
@@ -302,7 +329,8 @@ async def extract_content_stream(url: str):
                     data = {
                         'type': 'lineBreak',
                         'index': word_index - 1,
-                        'isParagraphBreak': True
+                        'isParagraphBreak': True,
+                        'headerLevel': None
                     }
                     yield f"data: {json.dumps(data)}\n\n"
             
