@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: url-to-podcast-api
-    env: python
-    plan: free
-    rootDirectory: backend  # This tells Render to use the backend directory
+    name: url-to-podcast-backend
+    runtime: python3
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
       - key: OPENAI_API_KEY
         sync: false
       - key: AWS_ACCESS_KEY_ID

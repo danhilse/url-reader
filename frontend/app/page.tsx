@@ -15,10 +15,13 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  console.log('Page rendered') // Add this to verify the page loads
+
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     try {
       const response = await fetch(`${API_URL}/api/scrape`, {
         method: 'POST',
