@@ -209,11 +209,3 @@ Core dependencies:
 - tailwindcss: Styling
 - typescript: Type safety
 
-## Contributing Guidelines
-
-1. Follow the existing component structure
-2. Use TypeScript for all new components
-3. Implement proper error handling
-4. Add appropriate loading states
-5. Update documentation for significant changes
-6. Follow shadcn component patterns

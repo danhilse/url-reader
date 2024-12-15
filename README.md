@@ -137,4 +137,3 @@ frontend/
 
 - OpenAI for the Text-to-Speech API
 - [shadcn/ui](https://ui.shadcn.com/) for the component library
-- All contributors and supporters

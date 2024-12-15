@@ -1,7 +1,7 @@
 # URL to Podcast Converter: Backend Documentation
 
 ## Overview
-A FastAPI backend service that converts web articles into audio podcasts using OpenAI's Text-to-Speech API. The system scrapes web content, processes it, generates audio, and maintains a podcast RSS feed.
+A FastAPI backend service that converts web articles into audio podcasts using OpenAI's Text-to-Speech API. The system scrapes web content, cleans it, generates audio, and maintains a podcast RSS feed.
 
 ## System Architecture
 
@@ -204,24 +204,9 @@ All errors include detailed messages in the response:
 - Monitor S3 upload success
 - Validate CloudFront URLs
 
-### Monitoring
-- Check logs for TTS errors
-- Monitor temporary file cleanup
-- Watch S3 upload success rates
-- Verify RSS feed updates
-
 ## Deployment
 
 ### Requirements
 - Python 3.11+ runtime
-- FFmpeg installation
 - Proper environment configuration
 - AWS credentials and permissions
-- Adequate storage space for temporary files
-
-### Testing the Deployment
-1. Verify health check endpoint
-2. Test content extraction
-3. Validate audio generation
-4. Check RSS feed updates
-5. Confirm CloudFront access
