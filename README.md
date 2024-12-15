@@ -2,7 +2,7 @@
 
 Convert web articles into audio podcasts with AI narration. This application scrapes articles, generates high-quality audio using OpenAI's Text-to-Speech API, and creates a podcast feed you can subscribe to in your favorite podcast app.
 
-![Demo of URL to Podcast Converter](\* public/demo.gif)
+![Demo of URL to Podcast Converter](%2A%20public/demo.gif)
 
 ## Prerequisites
 
